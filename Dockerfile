@@ -65,12 +65,12 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON
 # PyTorch — install CUDA-enabled wheel BEFORE boltz so the cuda extra
 # doesn't pull in a CPU-only torch from PyPI.
 # --------------------------------------------------------------------------- #
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install \
-        torch \
-        torchvision \
-        torchaudio \
-        --index-url ${TORCH_CUDA_INDEX}
+# RUN pip install --upgrade pip setuptools wheel && \
+#     pip install \
+#         torch \
+#         torchvision \
+#         torchaudio \
+#         --index-url ${TORCH_CUDA_INDEX}
 
 # --------------------------------------------------------------------------- #
 # Boltz-2 (with CUDA extras for cuEquivariance kernels)
@@ -81,9 +81,9 @@ RUN pip install "boltz[cuda]${BOLTZ_VERSION}"
 # Optional: NVIDIA cuEquivariance Python bindings (accelerates equivariant ops)
 # Safe to skip if not available for your arch — Boltz falls back gracefully.
 # --------------------------------------------------------------------------- #
-RUN pip install cuequivariance-torch cuequivariance-ops-torch-cu12 \
-        --extra-index-url https://pypi.nvidia.com || \
-    echo "WARNING: cuEquivariance packages unavailable for this platform, continuing without."
+# RUN pip install cuequivariance-torch cuequivariance-ops-torch-cu12 \
+#         --extra-index-url https://pypi.nvidia.com || \
+#     echo "WARNING: cuEquivariance packages unavailable for this platform, continuing without."
 
 # --------------------------------------------------------------------------- #
 # Create directories
