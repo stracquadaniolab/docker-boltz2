@@ -15,7 +15,7 @@
 #     boltz2:cuda124 boltz predict /data/input.yaml --use_msa_server --output_format mmcif
 # =============================================================================
 
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM pytorch/pytorch:2.9.1-cuda13.0-cudnn9-runtime
 
 # --------------------------------------------------------------------------- #
 # Build arguments (override at build time if needed)
@@ -43,23 +43,23 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # --------------------------------------------------------------------------- #
 # System packages
 # --------------------------------------------------------------------------- #
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        curl \
-        git \
-        libgomp1 \
-        libglib2.0-0 \
-        python${PYTHON_VERSION} \
-        python${PYTHON_VERSION}-dev \
-        python${PYTHON_VERSION}-distutils \
-        python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#         build-essential \
+#         ca-certificates \
+#         curl \
+#         git \
+#         libgomp1 \
+#         libglib2.0-0 \
+#         python${PYTHON_VERSION} \
+#         python${PYTHON_VERSION}-dev \
+#         python${PYTHON_VERSION}-distutils \
+#         python3-pip \
+#     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.11 the default python / pip
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1 && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 && \
-    curl -sS https://bootstrap.pypa.io/get-pip.py | python
+# # Make python3.11 the default python / pip
+# RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1 && \
+#     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 && \
+#     curl -sS https://bootstrap.pypa.io/get-pip.py | python
 
 # --------------------------------------------------------------------------- #
 # PyTorch — install CUDA-enabled wheel BEFORE boltz so the cuda extra
