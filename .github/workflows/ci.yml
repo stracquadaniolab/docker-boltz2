@@ -1,0 +1,183 @@
+name: Build & Push Boltz-2 GPU Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      boltz_version:
+        description: 'Boltz version to pin (e.g. ==2.2.1) — leave empty for latest'
+        required: false
+        default: ''
+      cuda_version:
+        description: 'CUDA version for PyTorch wheels'
+        required: false
+        default: 'cu124'
+        type: choice
+        options:
+          - cu124
+          - cu121
+          - cu118
+
+# Restrict GITHUB_TOKEN permissions to least-privilege
+permissions:
+  contents: read
+  packages: write
+  id-token: write   # needed for attestation (optional but recommended)
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}   # e.g. myorg/boltz2-docker → ghcr.io/myorg/boltz2-docker
+
+jobs:
+  build-and-push:
+    name: Build & Push (${{ matrix.cuda }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda: cu124
+            torch_index: https://download.pytorch.org/whl/cu124
+            tag_suffix: cuda124
+          - cuda: cu121
+            torch_index: https://download.pytorch.org/whl/cu121
+            tag_suffix: cuda121
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Set up QEMU (enables multi-arch builds if needed in future)
+      # -----------------------------------------------------------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # -----------------------------------------------------------------------
+      # 3. Set up Docker Buildx (BuildKit)
+      # -----------------------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+
+      # -----------------------------------------------------------------------
+      # 4. Log in to GHCR
+      #    Uses GITHUB_TOKEN — no secrets to configure manually.
+      # -----------------------------------------------------------------------
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # 5. Extract Docker metadata (tags + labels)
+      #    Tags generated:
+      #      On push to main  → :main-cuda124, :main-cuda121
+      #      On tag v1.2.3    → :v1.2.3-cuda124, :1.2-cuda124, :1-cuda124,
+      #                          :latest-cuda124
+      #      On PR            → :pr-42-cuda124  (not pushed)
+      # -----------------------------------------------------------------------
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            suffix=-${{ matrix.tag_suffix }},onlatest=true
+          tags: |
+            # branch name
+            type=ref,event=branch
+            # PR (build only, not pushed)
+            type=ref,event=pr
+            # semver tags
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # 'latest' on default branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # short SHA for traceability
+            type=sha,prefix=sha-,format=short
+
+      # -----------------------------------------------------------------------
+      # 6. Resolve build args
+      #    Allows workflow_dispatch overrides; falls back to matrix defaults.
+      # -----------------------------------------------------------------------
+      - name: Resolve build arguments
+        id: build_args
+        run: |
+          # CUDA index: prefer manual dispatch input, else use matrix value
+          DISPATCH_CUDA="${{ github.event.inputs.cuda_version }}"
+          if [ -n "$DISPATCH_CUDA" ] && [ "$DISPATCH_CUDA" != "${{ matrix.cuda }}" ]; then
+            echo "Skipping matrix entry ${{ matrix.cuda }} — dispatch requested $DISPATCH_CUDA"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          BOLTZ_VER="${{ github.event.inputs.boltz_version }}"
+          echo "boltz_version=${BOLTZ_VER}" >> "$GITHUB_OUTPUT"
+          echo "torch_index=${{ matrix.torch_index }}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # 7. Build and push
+      #    - Cache: GitHub Actions cache backend (fast layer reuse)
+      #    - Provenance + SBOM attestation for supply-chain security
+      # -----------------------------------------------------------------------
+      - name: Build and push Docker image
+        if: steps.build_args.outputs.skip != 'true'
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PYTHON_VERSION=3.11
+            BOLTZ_VERSION=${{ steps.build_args.outputs.boltz_version }}
+            TORCH_CUDA_INDEX=${{ steps.build_args.outputs.torch_index }}
+          # Layer cache — dramatically speeds up subsequent builds
+          cache-from: type=gha,scope=boltz2-${{ matrix.tag_suffix }}
+          cache-to:   type=gha,scope=boltz2-${{ matrix.tag_suffix }},mode=max
+          # Supply-chain security
+          provenance: true
+          sbom: true
+
+      # -----------------------------------------------------------------------
+      # 8. Print image digest for traceability
+      # -----------------------------------------------------------------------
+      - name: Image digest
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "### Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | \`${{ env.REGISTRY }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| CUDA variant | \`${{ matrix.tag_suffix }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Pull command:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ matrix.tag_suffix }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
