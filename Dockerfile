@@ -15,7 +15,7 @@
 #     boltz2:cuda124 boltz predict /data/input.yaml --use_msa_server --output_format mmcif
 # =============================================================================
 
-FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 # --------------------------------------------------------------------------- #
 # Build arguments (override at build time if needed)
