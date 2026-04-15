@@ -21,7 +21,8 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 # Build arguments (override at build time if needed)
 # --------------------------------------------------------------------------- #
 ARG PYTHON_VERSION=3.11
-ARG BOLTZ_VERSION=""          # pin e.g. "==2.2.1" or leave empty for latest
+# pin e.g. "==2.2.1" or leave empty for latest
+ARG BOLTZ_VERSION=""          
 ARG TORCH_CUDA_INDEX="https://download.pytorch.org/whl/cu124"
 
 # --------------------------------------------------------------------------- #
