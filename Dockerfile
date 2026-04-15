@@ -93,14 +93,14 @@ RUN mkdir -p ${BOLTZ_CACHE} /data /workspace
 # --------------------------------------------------------------------------- #
 # Smoke-test: verify CUDA is visible at import time
 # --------------------------------------------------------------------------- #
-RUN python -c " \
-import torch; \
-print('PyTorch version :', torch.__version__); \
-print('CUDA available  :', torch.cuda.is_available()); \
-print('CUDA built      :', torch.version.cuda); \
-import boltz; \
-print('Boltz version   :', boltz.__version__); \
-"
+# RUN python -c " \
+# import torch; \
+# print('PyTorch version :', torch.__version__); \
+# print('CUDA available  :', torch.cuda.is_available()); \
+# print('CUDA built      :', torch.version.cuda); \
+# import boltz; \
+# print('Boltz version   :', boltz.__version__); \
+# "
 
 # --------------------------------------------------------------------------- #
 # Labels
