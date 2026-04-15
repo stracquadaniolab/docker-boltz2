@@ -56,6 +56,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 #         python3-pip \
 #     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential
+
 # # Make python3.11 the default python / pip
 # RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1 && \
 #     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 && \
