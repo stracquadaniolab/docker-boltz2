@@ -15,7 +15,7 @@
 #     boltz2:cuda124 boltz predict /data/input.yaml --use_msa_server --output_format mmcif
 # =============================================================================
 
-FROM pytorch/pytorch:2.9.1-cuda13.0-cudnn9-runtime
+FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
 
 # --------------------------------------------------------------------------- #
 # Build arguments (override at build time if needed)
